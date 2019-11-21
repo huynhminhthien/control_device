@@ -1,4 +1,5 @@
 #include <SoftwareSerial.h>
+#include <TimerOne.h> // https://www.arduinolibraries.info/libraries/timer-one
 #include "Arduino.h"
 
 #define RX_PIN 10
@@ -8,27 +9,36 @@ SoftwareSerial SIM(RX_PIN, TX_PIN);
 
 const int btn1 = 2;  // the number of the button pin
 const int out1 = 5;  // the number of the motor control pin
-const int led1 = 4;  // the number of the led pin
+const int led1 = 6;  // the number of the led pin
 
-const char myPhone1[] = "0365485543";
-const char myPhone2[] = "+84365485543";
+const char myPhone1[] = "0977066594";
+const char myPhone2[] = "+84977066594";
 
 String buff = "";
 
 // motor on: status = true
 // motor off: status = false
 bool status = false;
+int second = 0, mSec = 0;
 
 void setup() {
   Serial.begin(115200);
   SIM.begin(9600);
 
-  simInit();
+  Timer1.initialize(100000);
+  Timer1.attachInterrupt(timerIsr);
+  Timer1.stop();
 
   pinMode(out1, OUTPUT);
   pinMode(led1, OUTPUT);
   pinMode(btn1, INPUT_PULLUP);
+
+  digitalWrite(out1, HIGH);
+  digitalWrite(led1, LOW);
+
   attachInterrupt(digitalPinToInterrupt(btn1), btnInterrup, FALLING);
+
+  simInit();
 }
 
 void loop() {
@@ -51,25 +61,26 @@ void loop() {
       Serial.println("Sms empty!");
     }
 
-    if (buff.indexOf("OK") != -1 && buff.length() > 7 &&
-        (num == myPhone1 || num == myPhone2)) {
+    if (buff.indexOf("OK") != -1 && buff.length() > 7) {
       buff.toUpperCase();
       char tmp_num[13];
       num.toCharArray(tmp_num, num.length() + 1);
       Serial.println(tmp_num);
-      if (buff.indexOf("BAT") != -1) {
+      if (buff.indexOf("BAT") != -1 || buff.indexOf("ON") != -1) {
         Serial.println("MOTOR TURN ON");
-        digitalWrite(out1, HIGH);
+        digitalWrite(out1, LOW);
+        digitalWrite(led1, HIGH);
         status = true;
-        while (!sendSms(tmp_num, "DA BAT")){
+        while (!sendSms(tmp_num, "DA BAT")) {
           Serial.println("try again...");
           delay(1000);
         }
-      } else if (buff.indexOf("TAT") != -1) {
+      } else if (buff.indexOf("TAT") != -1 || buff.indexOf("OFF") != -1) {
         Serial.println("MOTOR TURN OFF");
-        digitalWrite(out1, LOW);
+        digitalWrite(out1, HIGH);
+        digitalWrite(led1, LOW);
         status = false;
-        while (!sendSms(tmp_num, "DA TAT")){
+        while (!sendSms(tmp_num, "DA TAT")) {
           Serial.println("try again...");
           delay(1000);
         }
@@ -83,22 +94,41 @@ void loop() {
   }
 }
 
+void timerIsr(void) {
+  mSec++;
+  if (mSec > 10) {
+    second++;
+    mSec = 0;
+    Serial.print("second: ");
+    Serial.println(second);
+    if (second > 3) {
+      second = 0;
+      Timer1.stop();
+    }
+  }
+}
+
 void btnInterrup() {
   if (!digitalRead(btn1)) {
     delay(30);
-    if (!digitalRead(btn1))
+    if (!digitalRead(btn1) && second == 0) {
+      mSec = 0;
+      second = 1;
+      Timer1.start();
       checkStatus();
+    }
   }
 }
 
 void checkStatus() {
+  Serial.println("check status");
   if (status) {
-    digitalWrite(out1, LOW);  // off motor
+    digitalWrite(out1, HIGH);  // off motor
     digitalWrite(led1, LOW);
     status = false;
     Serial.println("MOTOR TURN OFF");
   } else {
-    digitalWrite(out1, HIGH);  // on motor
+    digitalWrite(out1, LOW);  // on motor
     digitalWrite(led1, HIGH);
     status = true;
     Serial.println("MOTOR TURN ON");
@@ -169,7 +199,7 @@ bool hangoffCall() {
 bool sendSms(char *number, char *text) {
   String _buffer = "";
   char tmp[25];
-  sprintf(tmp,"AT+CMGS=\"%s\"",number);
+  sprintf(tmp, "AT+CMGS=\"%s\"", number);
   cmdExecute(tmp);
   SIM.print(text);
   Serial.println(text);
