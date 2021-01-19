@@ -1,8 +1,8 @@
 {
     "programmer": "Arduino as ISP",
     "board": "arduino:avr:nano",
-    "configuration": "cpu=atmega328",
-    "port": "COM6",
+    "configuration": "cpu=atmega328old",
+    "port": "COM3",
     "output": "./build",
     "debugger": "jlink",
     "sketch": "control_device.ino"

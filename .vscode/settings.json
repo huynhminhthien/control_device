@@ -27,6 +27,8 @@
         "string_view": "cpp",
         "istream": "cpp",
         "*.tcc": "cpp",
-        "random": "cpp"
+        "random": "cpp",
+        "algorithm": "cpp",
+        "memory": "cpp"
     }
 }
